@@ -2,8 +2,8 @@ name: hotel-watch
 
 on:
   schedule:
-    # 30分おき（GitHubのcronはベストエフォートで数分〜十数分遅れることがある）
-    - cron: "*/30 * * * *"
+    # 15分おき（GitHubのcronはベストエフォートで数分〜十数分遅れることがある）
+    - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 # state.json をコミットで戻すため書き込み権限が必要
