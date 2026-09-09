@@ -89,9 +89,16 @@ def notify_slack(webhook_url, message):
     resp.raise_for_status()
 
 
-def format_rooms_summary(data):
+def filter_rooms(rooms, name_filter):
+    """room_type_name に name_filter を含む部屋だけ返す。filter が空なら全件。"""
+    if not name_filter:
+        return rooms
+    return [r for r in rooms if name_filter in r.get("room_type_name", "")]
+
+
+def format_rooms_summary(rooms):
     lines = []
-    for room in data.get("rooms", []):
+    for room in rooms:
         name = room.get("room_type_name", "(不明な部屋タイプ)")
         price = room.get("min_price")
         count = room.get("room_count")
@@ -126,6 +133,8 @@ def main():
 
     hotel_id = config["hotel_id"]
     hotel_code = config.get("hotel_code", "")
+    # 部屋名にこの文字列を含む部屋だけを判定・通知の対象にする(例: "禁煙")。空なら全部屋。
+    room_name_filter = config.get("room_name_filter", "")
     # CI(GitHub Actions)などでは秘匿値を環境変数から渡す。あれば config.json より優先。
     client_session = os.environ.get("CLIENT_SESSION") or config["client_session"]
     slack_webhook_url = os.environ.get("SLACK_WEBHOOK_URL") or config["slack_webhook_url"]
@@ -149,15 +158,16 @@ def main():
             any_error = True
             continue
 
-        rooms = data.get("rooms", [])
+        rooms = filter_rooms(data.get("rooms", []), room_name_filter)
         was_available = state.get(key, {}).get("available", False)
         is_available = len(rooms) > 0
 
         if is_available and not was_available:
-            summary = format_rooms_summary(data)
+            summary = format_rooms_summary(rooms)
             url = build_booking_url(hotel_code, checkin, checkout, adults)
+            label = f"空室が見つかりました（{room_name_filter}）" if room_name_filter else "空室が見つかりました"
             message = (
-                ":bell: *空室が見つかりました*\n"
+                f":bell: *{label}*\n"
                 f"{checkin} 〜 {checkout} (大人{adults}名)\n"
                 f"{summary}\n"
                 f"{url}"

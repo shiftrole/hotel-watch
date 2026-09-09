@@ -3,6 +3,7 @@
   "hotel_code": "973ac83f8f52bc2c4e31f7ae854f65ab",
   "client_session": "runtime (refresh_session.py --print で毎回取得)",
   "slack_webhook_url": "set-via-SLACK_WEBHOOK_URL-secret",
+  "room_name_filter": "禁煙",
   "targets": [
     { "checkin_date": "2026/09/19", "checkout_date": "2026/09/21", "adults": 2 },
     { "checkin_date": "2026/09/19", "checkout_date": "2026/09/22", "adults": 2 },

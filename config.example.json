@@ -3,6 +3,7 @@
   "hotel_code": "973ac83f8f52bc2c4e31f7ae854f65ab",
   "client_session": "ここにDevToolsで取得したclient-sessionヘッダーの値を貼り付けてください",
   "slack_webhook_url": "https://hooks.slack.com/services/XXXX/XXXX/XXXX",
+  "room_name_filter": "禁煙",
   "targets": [
     { "checkin_date": "2026/09/19", "checkout_date": "2026/09/21", "adults": 2 },
     { "checkin_date": "2026/09/19", "checkout_date": "2026/09/22", "adults": 2 },
