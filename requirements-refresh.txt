@@ -1,0 +1,3 @@
+# refresh_session.py 用（ローカル実行のみ。CI では使わない）
+# 初回のみ: pip install -r requirements-refresh.txt && playwright install chromium
+playwright>=1.40
