@@ -26,14 +26,26 @@ jobs:
           python-version: "3.12"
 
       - name: Install deps
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt -r requirements-refresh.txt
+
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements-refresh.txt') }}
+
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
 
       - name: Prepare config
         run: cp config.ci.json config.json
 
+      - name: Get fresh client_session
+        run: echo "CLIENT_SESSION=$(python refresh_session.py --print)" >> "$GITHUB_ENV"
+
       - name: Run watcher
         env:
-          CLIENT_SESSION: ${{ secrets.CLIENT_SESSION }}
+          CLIENT_SESSION: ${{ env.CLIENT_SESSION }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: python hotel_watch.py
 
@@ -43,7 +55,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           curl -sS -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\":warning: hotel-watch の実行が失敗しました。client_session の失効かもしれません。\nhttps://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
+            --data "{\"text\":\":warning: hotel-watch の実行が失敗しました。\nhttps://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
             "$SLACK_WEBHOOK_URL"
 
       - name: Persist state.json

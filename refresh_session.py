@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
 """
 tripla の client_session (TRIPLA_CLIENT_SESSION クッキー) を
-ヘッドレスブラウザで取得し、ローカルの config.json と
-GitHub Secret CLIENT_SESSION を更新する半自動スクリプト。
+ヘッドレスブラウザで取得する。
+
+- 予約ページはログイン不要で開くだけでこのクッキーを新規発行する。
+- その値が hotel_watch.py の client-session ヘッダーに必要な文字列そのもの。
 
 前提:
-    pip install playwright
+    pip install -r requirements-refresh.txt
     playwright install chromium
-    gh CLI がログイン済み (gh auth status で確認)
 
 使い方:
-    python refresh_session.py            # config.json と GitHub Secret を更新
-    python refresh_session.py --print    # 取得した値を表示するだけ
+    python refresh_session.py            # ローカルの config.json を新しい値に更新
+    python refresh_session.py --print    # 取得した値だけを標準出力に出す(CI用)
 """
 
 import json
 import os
-import subprocess
 import sys
+import time
 
 from playwright.sync_api import sync_playwright
 
@@ -34,22 +35,24 @@ BOOKING_URL = (
     "&parentUrl=https%3A%2F%2Fwww.daiwaroynet.jp&mcp_currency=JPY"
 )
 COOKIE_NAME = "TRIPLA_CLIENT_SESSION"
-GITHUB_REPO = "shiftrole/hotel-watch"
 
 
-def fetch_client_session():
+def fetch_client_session(timeout_sec=30):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context()
-        page = context.new_page()
-        page.goto(BOOKING_URL, wait_until="load", timeout=60000)
-        page.wait_for_timeout(3000)  # ウィジェットJSがクッキーを立てるのを待つ
-        token = None
-        for cookie in context.cookies():
-            if cookie["name"] == COOKIE_NAME:
-                token = cookie["value"]
-        browser.close()
-        return token
+        try:
+            context = browser.new_context()
+            page = context.new_page()
+            page.goto(BOOKING_URL, wait_until="load", timeout=60000)
+            deadline = time.time() + timeout_sec
+            while time.time() < deadline:
+                for cookie in context.cookies():
+                    if cookie["name"] == COOKIE_NAME and cookie["value"]:
+                        return cookie["value"]
+                page.wait_for_timeout(1000)
+            return None
+        finally:
+            browser.close()
 
 
 def update_local_config(token):
@@ -64,36 +67,22 @@ def update_local_config(token):
     return True
 
 
-def update_github_secret(token):
-    # gh secret set は stdin から値を読む（コマンド履歴に残らない）
-    result = subprocess.run(
-        ["gh", "secret", "set", "CLIENT_SESSION", "-R", GITHUB_REPO],
-        input=token,
-        text=True,
-    )
-    return result.returncode == 0
-
-
 def main():
+    print_only = "--print" in sys.argv
+
     token = fetch_client_session()
     if not token:
         print(f"{COOKIE_NAME} クッキーを取得できませんでした。", file=sys.stderr)
         sys.exit(1)
 
-    print(f"取得: {token[:24]}... ({len(token)} 文字)")
-
-    if "--print" in sys.argv:
+    if print_only:
+        # 標準出力にはトークンだけ（CI が $GITHUB_ENV に取り込む）
         print(token)
         return
 
+    print(f"取得: {token[:24]}... ({len(token)} 文字)", file=sys.stderr)
     if update_local_config(token):
-        print("config.json を更新しました。")
-
-    if update_github_secret(token):
-        print("GitHub Secret CLIENT_SESSION を更新しました。")
-    else:
-        print("gh secret set に失敗しました。gh auth status を確認してください。", file=sys.stderr)
-        sys.exit(1)
+        print("config.json を更新しました。", file=sys.stderr)
 
 
 if __name__ == "__main__":
