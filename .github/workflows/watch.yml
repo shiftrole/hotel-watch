@@ -41,7 +41,14 @@ jobs:
         run: cp config.ci.json config.json
 
       - name: Get fresh client_session
-        run: echo "CLIENT_SESSION=$(python refresh_session.py --print)" >> "$GITHUB_ENV"
+        run: |
+          set -e
+          token=$(python refresh_session.py --print)
+          if [ -z "$token" ]; then
+            echo "::error::client_session を取得できませんでした"
+            exit 1
+          fi
+          echo "CLIENT_SESSION=$token" >> "$GITHUB_ENV"
 
       - name: Run watcher
         env:

@@ -37,7 +37,7 @@ BOOKING_URL = (
 COOKIE_NAME = "TRIPLA_CLIENT_SESSION"
 
 
-def fetch_client_session(timeout_sec=30):
+def _fetch_once(timeout_sec):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         try:
@@ -53,6 +53,21 @@ def fetch_client_session(timeout_sec=30):
             return None
         finally:
             browser.close()
+
+
+def fetch_client_session(timeout_sec=45, retries=2):
+    """稀にページが重くてクッキー発行前にタイムアウトすることがあるのでリトライする。"""
+    last_error = None
+    for attempt in range(1, retries + 1):
+        try:
+            token = _fetch_once(timeout_sec)
+            if token:
+                return token
+            last_error = "cookie not set within timeout"
+        except Exception as e:  # noqa: BLE001 - ブラウザ起動系の一時的な例外もリトライ対象
+            last_error = str(e)
+        print(f"[retry {attempt}/{retries}] {last_error}", file=sys.stderr)
+    return None
 
 
 def update_local_config(token):
