@@ -71,5 +71,21 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add state.json
-          git diff --cached --quiet || git commit -m "chore: update state.json [skip ci]"
-          git push
+          if git diff --cached --quiet; then
+            echo "state.json に変更なし"
+            exit 0
+          fi
+          git commit -m "chore: update state.json [skip ci]"
+          # 他の実行と同時にpushして衝突することがあるのでリトライする。
+          # state.json しか触っていないので、衝突時はこちらの内容を優先して解決する。
+          for i in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            echo "push が衝突しました。rebaseしてリトライします ($i/5)"
+            git fetch origin main
+            git rebase origin/main -X ours || { git rebase --abort; }
+            sleep $((i * 2))
+          done
+          echo "::error::state.json のpushに失敗しました(5回リトライ後)"
+          exit 1
